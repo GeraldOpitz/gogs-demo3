@@ -1,10 +1,9 @@
 pipeline {
   agent any
 
-  environment {
-    TF_DIR = "${env.WORKSPACE}/environments/dev"
-    PATH = "$HOME/terraform:$PATH"
-  }
+    environment {
+    TF_DIR = "${env.WORKSPACE}/terraform/environments/dev"
+    }
 
   stages {
 
