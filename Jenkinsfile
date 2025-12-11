@@ -1,6 +1,5 @@
 pipeline {
   agent any
-
     environment {
     TF_DIR = "${env.WORKSPACE}/terraform/environments/dev"
     }
@@ -59,6 +58,7 @@ pipeline {
           anyOf {
             branch 'develop'
             branch 'main'
+            branch 'feature/jenkinsfile'
           }
         }
       }
@@ -118,30 +118,6 @@ pipeline {
               echo "\$DB_IP" > ${WORKSPACE}/ansible/db_ip.txt
             """
           }
-        }
-      }
-    }
-
-    stage('Generate Ansible Inventory test') {
-      when { expression { env.CHANGE_ID } }
-      steps {
-        script {
-          def appIp = readFile("${WORKSPACE}/ansible/app_ip.txt").trim()
-          def dbIp = readFile("${WORKSPACE}/ansible/db_ip.txt").trim()
-
-          sh """
-            cat > ${WORKSPACE}/ansible/ansible/inventories/dev/inventory.ini <<EOL
-    [all:vars]
-    ansible_user=ubuntu
-    ansible_python_interpreter=/usr/bin/python3
-
-    [app]
-    APP_EC2 ansible_host=${appIp} ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
-
-    [db]
-    DB_EC2 ansible_host=${dbIp} ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
-    EOL
-          """
         }
       }
     }
