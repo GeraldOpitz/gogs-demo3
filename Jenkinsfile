@@ -186,7 +186,7 @@ EOL
             }
         }
 
-    } // end stages
+    }
 
     post {
         always {
