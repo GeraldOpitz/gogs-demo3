@@ -145,7 +145,7 @@ pipeline {
           def appIp = readFile("${WORKSPACE}/ansible/app_ip.txt").trim()
 
           sh """
-            cat > ${WORKSPACE}/ansible/ansible/inventories/dev/inventory.ini <<EOL
+            cat > ${WORKSPACE}/ansible/ansible/inventories/inventory.ini <<EOL
     [ec2]
     APP_EC2 ansible_host=${appIp} ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
     EOL
