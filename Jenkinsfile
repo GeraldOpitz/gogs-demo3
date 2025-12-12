@@ -105,23 +105,6 @@ pipeline {
       }
     }
 
-  stage('Fetch Terraform Outputs Test') {
-    when { expression { env.CHANGE_ID } }
-      steps {
-        script {
-          withAWS(credentials: 'aws-credentials', region: 'us-east-1') {
-            sh """
-              export APP_IP=\$(terraform -chdir=$TF_DIR output -raw flask_app_public_ip)
-              export DB_IP=\$(terraform -chdir=$TF_DIR output -raw flask_db_public_ip)
-
-              echo "\$APP_IP" > ${WORKSPACE}/ansible/app_ip.txt
-              echo "\$DB_IP" > ${WORKSPACE}/ansible/db_ip.txt
-            """
-          }
-        }
-      }
-    }
-
     stage('Fetch Terraform Outputs') {
       when {
         allOf {
@@ -129,6 +112,7 @@ pipeline {
           anyOf {
             branch 'develop'
             branch 'main'
+            branch 'feature/jenkinsfile'
           }
         }
       }
@@ -136,11 +120,9 @@ pipeline {
         script {
           withAWS(credentials: 'aws-credentials', region: 'us-east-1') {
             sh """
-              export APP_IP=\$(terraform -chdir=$TF_DIR output -raw flask_app_public_ip)
-              export DB_IP=\$(terraform -chdir=$TF_DIR output -raw flask_db_public_ip)
+              export APP_IP=\$(terraform -chdir=$TF_DIR output -raw gogs_public_ip)
 
               echo "\$APP_IP" > ${WORKSPACE}/ansible/app_ip.txt
-              echo "\$DB_IP" > ${WORKSPACE}/ansible/db_ip.txt
             """
           }
         }
@@ -154,25 +136,18 @@ pipeline {
           anyOf {
             branch 'develop'
             branch 'main'
+            branch 'feature/jenkinsfile'
           }
         }
       }
       steps {
         script {
           def appIp = readFile("${WORKSPACE}/ansible/app_ip.txt").trim()
-          def dbIp = readFile("${WORKSPACE}/ansible/db_ip.txt").trim()
 
           sh """
             cat > ${WORKSPACE}/ansible/ansible/inventories/dev/inventory.ini <<EOL
-    [all:vars]
-    ansible_user=ubuntu
-    ansible_python_interpreter=/usr/bin/python3
-
-    [app]
+    [ec2]
     APP_EC2 ansible_host=${appIp} ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
-
-    [db]
-    DB_EC2 ansible_host=${dbIp} ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
     EOL
           """
         }
@@ -186,12 +161,13 @@ pipeline {
         anyOf {
             branch 'develop'
             branch 'main'
+            branch 'feature/jenkinsfile'
         }
         }
     }
     steps {
         script {
-        sshagent(['ec2-app-key', 'ec2-db-key']) {
+        sshagent(['ec2-app-key']) {
             sh """
             set -e
 
