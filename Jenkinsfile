@@ -173,7 +173,7 @@ pipeline {
 
             ansible-playbook \
                 -i ${WORKSPACE}/ansible/inventories/inventory.ini \
-                ${WORKSPACE}/playbooks.yml \
+                ${WORKSPACE}/ansible/playbooks.yml \
                 -u ubuntu
             """
         }
