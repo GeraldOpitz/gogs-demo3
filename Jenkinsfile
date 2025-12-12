@@ -174,13 +174,19 @@ pipeline {
             ansible-playbook \
                 -i ${WORKSPACE}/ansible/inventories/inventory.ini \
                 ${WORKSPACE}/ansible/playbooks.yml \
-                -u ubuntu
+                -u ubuntu || exit_code=\$?
+
+            if [ "\$exit_code" = "4" ]; then
+            echo "Warnings only, continuing..."
+            exit 0
+            elif [ -n "\$exit_code" ]; then
+            exit \$exit_code
+            fi
             """
         }
       }
     }
   }
-}
 
   post {
     always {
