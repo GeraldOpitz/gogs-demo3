@@ -3,7 +3,6 @@ pipeline {
     environment {
     TF_DIR = "${env.WORKSPACE}/terraform/environments/dev"
     }
-}
 
   stages {
 
@@ -189,12 +188,13 @@ pipeline {
     }
   }
 
-  post {
-    always {
-      cleanWs()
-    }
-    failure {
-      echo "Failed to create or configure resources."
+    post {
+        always {
+        cleanWs()
+        }
+        failure {
+        echo "Failed to create or configure resources."
+        }
     }
   }
 }
