@@ -3,6 +3,7 @@ pipeline {
     environment {
     TF_DIR = "${env.WORKSPACE}/terraform/environments/dev"
     }
+}
 
   stages {
 
