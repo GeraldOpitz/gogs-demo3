@@ -120,7 +120,7 @@ pipeline {
         script {
           withAWS(credentials: 'aws-credentials', region: 'us-east-1') {
             sh """
-              export APP_IP=\$(terraform -chdir=$TF_DIR output -raw gogs_public_ip)
+              export APP_IP=\$(terraform -chdir=$TF_DIR output -raw ec2_public_ip)
 
               echo "\$APP_IP" > ${WORKSPACE}/ansible/app_ip.txt
             """
