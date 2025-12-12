@@ -145,7 +145,7 @@ pipeline {
           def appIp = readFile("${WORKSPACE}/ansible/app_ip.txt").trim()
 
           sh """
-            cat > ${WORKSPACE}/ansible/ansible/inventories/inventory.ini <<EOL
+            cat > ${WORKSPACE}/ansible/inventories/inventory.ini <<EOL
     [ec2]
     APP_EC2 ansible_host=${appIp} ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
     EOL
@@ -172,8 +172,8 @@ pipeline {
             set -e
 
             ansible-playbook \
-                -i ${WORKSPACE}/ansible/ansible/inventories/dev/inventory.ini \
-                ${WORKSPACE}/ansible/ansible/playbooks.yml \
+                -i ${WORKSPACE}/ansible/inventories/inventory.ini \
+                ${WORKSPACE}/ansible/playbooks.yml \
                 -u ubuntu
             """
         }
