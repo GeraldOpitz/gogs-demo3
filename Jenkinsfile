@@ -91,21 +91,19 @@ pipeline {
                     }
                 }
             }
-            steps {
-                script {
-                    input message: "¿Do you wish to apply Terraform changes to AWS and GCP in ${env.BRANCH_NAME}?",
-                          ok: "yes"
-                }
-            }
             parallel {
+
                 stage('Apply AWS') {
                     steps {
-                        dir("${TF_AWS_DIR}") {
-                            withAWS(credentials: 'aws-credentials', region: 'us-east-1') {
-                                sh '''
-                                    echo "Applying AWS changes"
-                                    terraform apply -auto-approve tfplan
-                                '''
+                        script {
+                            input message: "¿Do you wish to apply Terraform changes in AWS (${env.BRANCH_NAME})?",
+                                ok: "yes"
+                            dir("${TF_DIR_AWS}") {
+                                withAWS(credentials: 'aws-credentials', region: 'us-east-1') {
+                                    sh '''
+                                        terraform apply -auto-approve tfplan
+                                    '''
+                                }
                             }
                         }
                     }
@@ -113,12 +111,11 @@ pipeline {
 
                 stage('Apply GCP') {
                     steps {
-                        dir("${TF_GCP_DIR}") {
-                            withCredentials([
-                                file(credentialsId: 'gcp-sa-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS')
-                            ]) {
+                        script {
+                            input message: "¿Do you wish to apply Terraform changes in GCP (${env.BRANCH_NAME})?",
+                                ok: "yes"
+                            dir("${TF_DIR_GCP}") {
                                 sh '''
-                                    echo "Applying GCP changes"
                                     terraform apply -auto-approve tfplan
                                 '''
                             }
