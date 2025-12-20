@@ -25,6 +25,29 @@ pipeline {
             }
         }
 
+        stage('Terraform Init') {
+            parallel {
+                stage('Init AWS') {
+                    steps {
+                        dir("${TF_AWS_DIR}") {
+                            withAWS(credentials: 'aws-credentials', region: 'us-east-1') {
+                                sh 'terraform init -backend-config="backend.hcl"'
+                            }
+                        }
+                    }
+                }
+                stage('Init GCP') {
+                    steps {
+                        dir("${TF_GCP_DIR}") {
+                            withCredentials([file(credentialsId: 'gcp-sa-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
+                                sh 'terraform init'
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         stage('Terraform Plan') {
             parallel {
                 stage('Plan AWS') {
@@ -52,42 +75,6 @@ pipeline {
                                 '''
                             }
                         }
-                    }
-                }
-            }
-        }
-
-        stage('Terraform Init') {
-            parallel {
-                stage('Init AWS') {
-                    steps {
-                        dir("${TF_AWS_DIR}") {
-                            withAWS(credentials: 'aws-credentials', region: 'us-east-1') {
-                                sh 'terraform init -backend-config="backend.hcl"'
-                            }
-                        }
-                    }
-                }
-                stage('Init GCP') {
-                    steps {
-                        dir("${TF_GCP_DIR}") {
-                            withCredentials([file(credentialsId: 'gcp-sa-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
-                                sh 'terraform init'
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        stage('Terraform Plan') {
-            steps {
-                dir("${TF_DIR}") {
-                    withAWS(credentials: 'aws-credentials', region: 'us-east-1') {
-                        sh '''
-                            echo "Planning changes"
-                            terraform plan -out=tfplan
-                        '''
                     }
                 }
             }
