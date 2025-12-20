@@ -18,7 +18,7 @@ pipeline {
                 dir("${env.WORKSPACE}/terraform") {
                     sh 'rm -rf ./* ./.??* || true'
                     sh '''
-                        git clone -b GOGS-5-Terraform-Infrastructure-as-Code \
+                        git clone -b GOGS-5-Terraform-GCP \
                         https://github.com/GeraldOpitz/gogs-tf .
                     '''
                 }
