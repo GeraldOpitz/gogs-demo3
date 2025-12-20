@@ -29,18 +29,26 @@ pipeline {
             parallel {
                 stage('Init AWS') {
                     steps {
-                        dir("${TF_AWS_DIR}") {
-                            withAWS(credentials: 'aws-credentials', region: 'us-east-1') {
-                                sh 'terraform init -backend-config="backend.hcl"'
+                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                            dir("${TF_AWS_DIR}") {
+                                withAWS(credentials: 'aws-credentials', region: 'us-east-1') {
+                                    sh 'terraform init -backend-config="backend.hcl"'
+                                }
                             }
                         }
                     }
                 }
+
                 stage('Init GCP') {
                     steps {
-                        dir("${TF_GCP_DIR}") {
-                            withCredentials([file(credentialsId: 'gcp-sa-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS')]) {
-                                sh 'terraform init'
+                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                            dir("${TF_GCP_DIR}") {
+                                withCredentials([file(credentialsId: 'gcp-sa-key', variable: 'GCP_KEY')]) {
+                                    sh '''
+                                    export GOOGLE_APPLICATION_CREDENTIALS=$GCP_KEY
+                                    terraform init
+                                    '''
+                                }
                             }
                         }
                     }
@@ -50,14 +58,14 @@ pipeline {
 
         stage('Terraform Plan') {
             parallel {
+
                 stage('Plan AWS') {
                     steps {
-                        dir("${TF_AWS_DIR}") {
-                            withAWS(credentials: 'aws-credentials', region: 'us-east-1') {
-                                sh '''
-                                    echo "Planning AWS changes"
-                                    terraform plan -out=tfplan
-                                '''
+                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                            dir("${TF_AWS_DIR}") {
+                                withAWS(credentials: 'aws-credentials', region: 'us-east-1') {
+                                    sh 'terraform plan -out=tfplan'
+                                }
                             }
                         }
                     }
@@ -65,14 +73,16 @@ pipeline {
 
                 stage('Plan GCP') {
                     steps {
-                        dir("${TF_GCP_DIR}") {
-                            withCredentials([
-                                file(credentialsId: 'gcp-sa-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS')
-                            ]) {
-                                sh '''
-                                    echo "Planning GCP changes"
-                                    terraform plan -out=tfplan
-                                '''
+                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                            dir("${TF_GCP_DIR}") {
+                                withCredentials([
+                                    file(credentialsId: 'gcp-sa-key', variable: 'GCP_KEY')
+                                ]) {
+                                    sh '''
+                                      export GOOGLE_APPLICATION_CREDENTIALS=$GCP_KEY
+                                      terraform plan -out=tfplan
+                                    '''
+                                }
                             }
                         }
                     }
@@ -91,18 +101,32 @@ pipeline {
                     }
                 }
             }
+
+            steps {
+                input message: "¿Aplicar infraestructura en AWS y GCP?", ok: "yes"
+            }
+        }
+
+        stage('Terraform Apply Parallel') {
+            when {
+                allOf {
+                    expression { !env.CHANGE_ID }
+                    anyOf {
+                        branch 'develop'
+                        branch 'main'
+                        branch 'feature/jenkinsfile'
+                    }
+                }
+            }
+
             parallel {
 
                 stage('Apply AWS') {
                     steps {
-                        script {
-                            input message: "¿Do you wish to apply Terraform changes in AWS (${env.BRANCH_NAME})?",
-                                ok: "yes"
-                            dir("${TF_DIR_AWS}") {
+                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                            dir("${TF_AWS_DIR}") {
                                 withAWS(credentials: 'aws-credentials', region: 'us-east-1') {
-                                    sh '''
-                                        terraform apply -auto-approve tfplan
-                                    '''
+                                    sh 'terraform apply -auto-approve tfplan'
                                 }
                             }
                         }
@@ -111,13 +135,16 @@ pipeline {
 
                 stage('Apply GCP') {
                     steps {
-                        script {
-                            input message: "¿Do you wish to apply Terraform changes in GCP (${env.BRANCH_NAME})?",
-                                ok: "yes"
-                            dir("${TF_DIR_GCP}") {
-                                sh '''
-                                    terraform apply -auto-approve tfplan
-                                '''
+                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                            dir("${TF_GCP_DIR}") {
+                                withCredentials([
+                                    file(credentialsId: 'gcp-sa-key', variable: 'GCP_KEY')
+                                ]) {
+                                    sh '''
+                                      export GOOGLE_APPLICATION_CREDENTIALS=$GCP_KEY
+                                      terraform apply -auto-approve tfplan
+                                    '''
+                                }
                             }
                         }
                     }
@@ -127,14 +154,17 @@ pipeline {
 
         stage('Terraform Output') {
             parallel {
+
                 stage('Output AWS') {
                     steps {
-                        dir("${TF_AWS_DIR}") {
-                            withAWS(credentials: 'aws-credentials', region: 'us-east-1') {
-                                sh '''
-                                    terraform output
-                                    terraform output -json > tf-output-aws.json
-                                '''
+                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                            dir("${TF_AWS_DIR}") {
+                                withAWS(credentials: 'aws-credentials', region: 'us-east-1') {
+                                    sh '''
+                                        terraform output
+                                        terraform output -json > aws-tf-output.json
+                                    '''
+                                }
                             }
                         }
                     }
@@ -142,14 +172,17 @@ pipeline {
 
                 stage('Output GCP') {
                     steps {
-                        dir("${TF_GCP_DIR}") {
-                            withCredentials([
-                                file(credentialsId: 'gcp-sa-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS')
-                            ]) {
-                                sh '''
-                                    terraform output
-                                    terraform output -json > tf-output-gcp.json
-                                '''
+                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                            dir("${TF_GCP_DIR}") {
+                                withCredentials([
+                                    file(credentialsId: 'gcp-sa-key', variable: 'GCP_KEY')
+                                ]) {
+                                    sh '''
+                                      export GOOGLE_APPLICATION_CREDENTIALS=$GCP_KEY
+                                      terraform output
+                                      terraform output -json > gcp-tf-output.json
+                                    '''
+                                }
                             }
                         }
                     }
@@ -183,6 +216,7 @@ pipeline {
             parallel {
                 stage('Fetch AWS Outputs') {
                     steps {
+                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                         script {
                             withAWS(credentials: 'aws-credentials', region: 'us-east-1') {
                                 sh """
@@ -193,9 +227,11 @@ pipeline {
                         }
                     }
                 }
+            }
 
                 stage('Fetch GCP Outputs') {
                     steps {
+                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                         script {
                             withCredentials([
                                 file(credentialsId: 'gcp-sa-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS')
@@ -210,11 +246,13 @@ pipeline {
                 }
             }
         }
+    }
 
         stage('Generate Ansible Inventories') {
             parallel {
                 stage('AWS Inventory') {
                     steps {
+                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                         script {
                             def appIp = readFile("${WORKSPACE}/ansible/app_ip_aws.txt").trim()
                             sh """
@@ -226,9 +264,11 @@ pipeline {
                         }
                     }
                 }
+            }
 
                 stage('GCP Inventory') {
                     steps {
+                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                         script {
                             def appIp = readFile("${WORKSPACE}/ansible/app_ip_gcp.txt").trim()
                             sh """
@@ -242,11 +282,13 @@ pipeline {
                 }
             }
         }
+    }
 
         stage('Run Ansible - Deploy') {
             parallel {
                 stage('Deploy AWS') {
                     steps {
+                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                         sshagent(['ec2-app-key']) {
                             sh '''
                                 ansible-playbook \
@@ -257,9 +299,11 @@ pipeline {
                         }
                     }
                 }
+            }
 
                 stage('Deploy GCP') {
                     steps {
+                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                         sshagent(['gcp-ssh-key']) {
                             sh '''
                                 ansible-playbook \
@@ -273,6 +317,7 @@ pipeline {
             }
         }
     }
+}
 
     post {
         always {
