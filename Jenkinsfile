@@ -256,26 +256,28 @@ pipeline {
                         script {
                             def appIp = readFile("${WORKSPACE}/ansible/app_ip_aws.txt").trim()
                             sh """
-                                cat > ${WORKSPACE}/ansible/inventories/aws.ini <<EOF
-    [ec2]
-    APP_EC2 ansible_host=${appIp} ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
-    EOF
+                                mkdir -p ${WORKSPACE}/ansible/inventories
+                                cat > ${WORKSPACE}/ansible/inventories/aws.ini <<EOL
+[ec2]
+APP_EC2 ansible_host=${appIp} ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+EOL
                             """
                         }
                     }
                 }
             }
-
+            
                 stage('GCP Inventory') {
                     steps {
                         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                         script {
                             def appIp = readFile("${WORKSPACE}/ansible/app_ip_gcp.txt").trim()
                             sh """
-                                cat > ${WORKSPACE}/ansible/inventories/gcp.ini <<EOF
-    [vm]
-    APP_VM ansible_host=${appIp} ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
-    EOF
+                                mkdir -p ${WORKSPACE}/ansible/inventories
+                                cat > ${WORKSPACE}/ansible/inventories/gcp.ini <<EOL
+[vm]
+APP_VM ansible_host=${appIp} ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+EOL
                             """
                         }
                     }
