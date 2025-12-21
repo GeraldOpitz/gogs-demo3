@@ -288,7 +288,7 @@ EOL
                 stage('Deploy GCP') {
                     steps {
                         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                        sshagent(['gcp-ssh-key']) {
+                        sshagent(['gcp-gogs-key']) {
                             sh '''
                                 ansible-playbook \
                                   -i ansible/inventories/inventory.ini \
