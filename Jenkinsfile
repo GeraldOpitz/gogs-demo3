@@ -76,7 +76,7 @@ pipeline {
                         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                             dir("${TF_GCP_DIR}") {
                                 withCredentials([
-                                    file(credentialsId: 'gcp-sa-key', variable: 'GCP_KEY')
+                                    file(credentialsId: 'gcp-gogs-key', variable: 'GCP_KEY')
                                 ]) {
                                     sh '''
                                       export GOOGLE_APPLICATION_CREDENTIALS=$GCP_KEY
