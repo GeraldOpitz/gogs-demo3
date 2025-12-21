@@ -77,13 +77,10 @@ pipeline {
                             dir("${TF_GCP_DIR}") {
                                 withCredentials([
                                     file(credentialsId: 'gcp-sa-key', variable: 'GCP_KEY'),
-                                    file(credentialsId: 'gcp-gogs-key.pub', variable: 'GCP_PUB_KEY')
                                 ]) {
                                     sh '''
                                       export GOOGLE_APPLICATION_CREDENTIALS=$GCP_KEY
-                                      export GOOGLE_SSH_PUBLIC_KEY=$GCP_PUB_KEY
                                         terraform plan \
-                                            -var="ssh_public_key=$(cat $GCP_PUB_KEY)" \
                                             -out=tfplan
                                     '''
                                 }
@@ -143,11 +140,9 @@ pipeline {
                             dir("${TF_GCP_DIR}") {
                                 withCredentials([
                                     file(credentialsId: 'gcp-sa-key', variable: 'GCP_KEY'),
-                                    file(credentialsId: 'gcp-gogs-key.pub', variable: 'GCP_PUB_KEY')
                                 ]) {
                                     sh '''
                                       export GOOGLE_APPLICATION_CREDENTIALS=$GCP_KEY
-                                      export GOOGLE_SSH_PUBLIC_KEY=$GCP_PUB_KEY
                                       terraform apply -auto-approve tfplan
                                     '''
                                 }
@@ -182,11 +177,9 @@ pipeline {
                             dir("${TF_GCP_DIR}") {
                                 withCredentials([
                                     file(credentialsId: 'gcp-sa-key', variable: 'GCP_KEY'),
-                                    file(credentialsId: 'gcp-gogs-key.pub', variable: 'GCP_PUB_KEY')
                                 ]) {
                                     sh '''
                                       export GOOGLE_APPLICATION_CREDENTIALS=$GCP_KEY
-                                      export GOOGLE_SSH_PUBLIC_KEY=$GCP_PUB_KEY
                                       terraform output
                                       terraform output -json > gcp-tf-output.json
                                     '''
@@ -243,7 +236,6 @@ pipeline {
                         script {
                             withCredentials([
                                 file(credentialsId: 'gcp-sa-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS'),
-                                file(credentialsId: 'gcp-gogs-key.pub', variable: 'GCP_PUB_KEY')
                             ]) {
                                 sh """
                                     APP_IP=\$(terraform -chdir=${TF_GCP_DIR} output -raw vm_public_ip)
@@ -278,22 +270,6 @@ EOL
                 }    
             }
 
-
-        stage('DEBUG SSH GCP') {
-            steps {
-                sshagent(['gcp-gogs-key.pub']) {
-                    sh '''
-                        echo "Probando SSH directo a GCP..."
-                        ssh -vvv \
-                        -o StrictHostKeyChecking=no \
-                        -o UserKnownHostsFile=/dev/null \
-                        ubuntu@34.9.94.94 \
-                        "echo CONECTADO_OK && hostname"
-                    '''
-                }
-            }
-        }
-
         stage('Run Ansible - Deploy') {
             parallel {
                 stage('Deploy AWS') {
@@ -313,7 +289,7 @@ EOL
                 stage('Deploy GCP') {
                     steps {
                         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                        sshagent(['gcp-gogs-key.pub']) {
+                        sshagent(['gcp-gogs-key']) {
                             sh '''
                                 ANSIBLE_DEBUG=True ansible-playbook \
                                   -i ansible/inventories/inventory.ini \
@@ -328,7 +304,11 @@ EOL
 }
 
     post {
+        always {
+            cleanWs()
+        }
         failure {
             echo "Failed to create or configure AWS or GCP resources."
         }
     }
+}
