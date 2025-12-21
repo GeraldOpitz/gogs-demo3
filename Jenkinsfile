@@ -1,5 +1,6 @@
 pipeline {
     agent any
+
     environment {
         TF_AWS_DIR = "${env.WORKSPACE}/terraform/environments/aws/dev"
         TF_GCP_DIR = "${env.WORKSPACE}/terraform/environments/gcp/dev"
@@ -16,7 +17,6 @@ pipeline {
         stage('Clone Terraform Project') {
             steps {
                 dir("${env.WORKSPACE}/terraform") {
-                    sh 'rm -rf ./* ./.??* || true'
                     sh '''
                         git clone -b GOGS-5-Terraform-GCP \
                         https://github.com/GeraldOpitz/gogs-tf .
@@ -25,8 +25,27 @@ pipeline {
             }
         }
 
+        stage('Derive GCP SSH Public Key') {
+            steps {
+                withCredentials([
+                    sshUserPrivateKey(
+                        credentialsId: 'gcp-gogs-key',
+                        keyFileVariable: 'SSH_KEY_FILE'
+                    )
+                ]) {
+                    sh '''
+                        echo "Deriving public key from Jenkins SSH private key"
+                        PUB_KEY=$(ssh-keygen -y -f "$SSH_KEY_FILE")
+                        export TF_VAR_jenkins_ssh_public_key="$PUB_KEY"
+                        echo "Public key derived successfully"
+                    '''
+                }
+            }
+        }
+
         stage('Terraform Init') {
             parallel {
+
                 stage('Init AWS') {
                     steps {
                         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
@@ -43,10 +62,12 @@ pipeline {
                     steps {
                         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                             dir("${TF_GCP_DIR}") {
-                                withCredentials([file(credentialsId: 'gcp-sa-key', variable: 'GCP_KEY')]) {
+                                withCredentials([
+                                    file(credentialsId: 'gcp-sa-key', variable: 'GCP_KEY')
+                                ]) {
                                     sh '''
-                                    export GOOGLE_APPLICATION_CREDENTIALS=$GCP_KEY
-                                    terraform init
+                                        export GOOGLE_APPLICATION_CREDENTIALS=$GCP_KEY
+                                        terraform init
                                     '''
                                 }
                             }
@@ -76,15 +97,11 @@ pipeline {
                         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                             dir("${TF_GCP_DIR}") {
                                 withCredentials([
-                                    file(credentialsId: 'gcp-sa-key', variable: 'GCP_KEY'),
-                                    file(credentialsId: 'gcp-gogs-key.pub', variable: 'GCP_PUB_KEY')
+                                    file(credentialsId: 'gcp-sa-key', variable: 'GCP_KEY')
                                 ]) {
                                     sh '''
-                                      export GOOGLE_APPLICATION_CREDENTIALS=$GCP_KEY
-                                      export GOOGLE_SSH_PUBLIC_KEY=$GCP_PUB_KEY
-                                        terraform plan \
-                                            -var="ssh_public_key=$(cat $GCP_PUB_KEY)" \
-                                            -out=tfplan
+                                        export GOOGLE_APPLICATION_CREDENTIALS=$GCP_KEY
+                                        terraform plan -out=tfplan
                                     '''
                                 }
                             }
@@ -94,7 +111,7 @@ pipeline {
             }
         }
 
-        stage('Terraform Apply') {
+        stage('Terraform Apply Approval') {
             when {
                 allOf {
                     expression { !env.CHANGE_ID }
@@ -105,13 +122,12 @@ pipeline {
                     }
                 }
             }
-
             steps {
-                input message: "¿Aplicar infraestructura en AWS y GCP?", ok: "yes"
+                input message: "¿Aplicar infraestructura en AWS y GCP?", ok: "Aplicar"
             }
         }
 
-        stage('Terraform Apply Parallel') {
+        stage('Terraform Apply') {
             when {
                 allOf {
                     expression { !env.CHANGE_ID }
@@ -142,13 +158,11 @@ pipeline {
                         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                             dir("${TF_GCP_DIR}") {
                                 withCredentials([
-                                    file(credentialsId: 'gcp-sa-key', variable: 'GCP_KEY'),
-                                    file(credentialsId: 'gcp-gogs-key.pub', variable: 'GCP_PUB_KEY')
+                                    file(credentialsId: 'gcp-sa-key', variable: 'GCP_KEY')
                                 ]) {
                                     sh '''
-                                      export GOOGLE_APPLICATION_CREDENTIALS=$GCP_KEY
-                                      export GOOGLE_SSH_PUBLIC_KEY=$GCP_PUB_KEY
-                                      terraform apply -auto-approve tfplan
+                                        export GOOGLE_APPLICATION_CREDENTIALS=$GCP_KEY
+                                        terraform apply -auto-approve tfplan
                                     '''
                                 }
                             }
@@ -158,19 +172,14 @@ pipeline {
             }
         }
 
-        stage('Terraform Output') {
+        stage('Terraform Outputs') {
             parallel {
 
                 stage('Output AWS') {
                     steps {
-                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                            dir("${TF_AWS_DIR}") {
-                                withAWS(credentials: 'aws-credentials', region: 'us-east-1') {
-                                    sh '''
-                                        terraform output
-                                        terraform output -json > aws-tf-output.json
-                                    '''
-                                }
+                        dir("${TF_AWS_DIR}") {
+                            withAWS(credentials: 'aws-credentials', region: 'us-east-1') {
+                                sh 'terraform output -json > aws-tf-output.json'
                             }
                         }
                     }
@@ -178,19 +187,14 @@ pipeline {
 
                 stage('Output GCP') {
                     steps {
-                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                            dir("${TF_GCP_DIR}") {
-                                withCredentials([
-                                    file(credentialsId: 'gcp-sa-key', variable: 'GCP_KEY'),
-                                    file(credentialsId: 'gcp-gogs-key.pub', variable: 'GCP_PUB_KEY')
-                                ]) {
-                                    sh '''
-                                      export GOOGLE_APPLICATION_CREDENTIALS=$GCP_KEY
-                                      export GOOGLE_SSH_PUBLIC_KEY=$GCP_PUB_KEY
-                                      terraform output
-                                      terraform output -json > gcp-tf-output.json
-                                    '''
-                                }
+                        dir("${TF_GCP_DIR}") {
+                            withCredentials([
+                                file(credentialsId: 'gcp-sa-key', variable: 'GCP_KEY')
+                            ]) {
+                                sh '''
+                                    export GOOGLE_APPLICATION_CREDENTIALS=$GCP_KEY
+                                    terraform output -json > gcp-tf-output.json
+                                '''
                             }
                         }
                     }
@@ -201,7 +205,6 @@ pipeline {
         stage('Clone Ansible Project') {
             steps {
                 dir("${env.WORKSPACE}/ansible") {
-                    sh 'rm -rf ./* ./.??* || true'
                     sh '''
                         git clone -b ansible \
                         https://github.com/GeraldOpitz/gogs-ansible .
@@ -210,126 +213,44 @@ pipeline {
             }
         }
 
-        stage('Fetch Terraform Outputs') {
-            when {
-                allOf {
-                    expression { !env.CHANGE_ID }
-                    anyOf {
-                        branch 'develop'
-                        branch 'main'
-                        branch 'feature/jenkinsfile'
-                    }
-                }
-            }
-            parallel {
-                stage('Fetch AWS Outputs') {
-                    steps {
-                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                        script {
-                            withAWS(credentials: 'aws-credentials', region: 'us-east-1') {
-                                sh """
-                                    APP_IP=\$(terraform -chdir=${TF_AWS_DIR} output -raw ec2_public_ip)
-                                    echo "\$APP_IP" > ${WORKSPACE}/ansible/app_ip_aws.txt
-                                """
-                            }
-                        }
-                    }
-                }
-            }
+        stage('Generate Ansible Inventory') {
+            steps {
+                script {
+                    def appIpGCP = sh(
+                        script: "terraform -chdir=${TF_GCP_DIR} output -raw vm_public_ip",
+                        returnStdout: true
+                    ).trim()
 
-                stage('Fetch GCP Outputs') {
-                    steps {
-                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                        script {
-                            withCredentials([
-                                file(credentialsId: 'gcp-sa-key', variable: 'GOOGLE_APPLICATION_CREDENTIALS'),
-                                file(credentialsId: 'gcp-gogs-key.pub', variable: 'GCP_PUB_KEY')
-                            ]) {
-                                sh """
-                                    APP_IP=\$(terraform -chdir=${TF_GCP_DIR} output -raw vm_public_ip)
-                                    echo "\$APP_IP" > ${WORKSPACE}/ansible/app_ip_gcp.txt
-                                """
-                            }
-                        }
-                    }
+                    sh """
+                        mkdir -p ansible/inventories
+                        cat > ansible/inventories/inventory.ini <<EOL
+[vm]
+gogs_vm ansible_host=${appIpGCP} ansible_user=ubuntu ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+EOL
+                    """
                 }
             }
         }
-    }
 
-        stage('Generate Ansible Inventory') {
-                    steps {
-                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                        script {
-                            def appIpAWS = readFile("${WORKSPACE}/ansible/app_ip_aws.txt").trim()
-                            def appIpGCP = readFile("${WORKSPACE}/ansible/app_ip_gcp.txt").trim()
-                            sh """
-                                mkdir -p ${WORKSPACE}/ansible/inventories
-                                cat > ${WORKSPACE}/ansible/inventories/inventory.ini <<EOL
-[ec2]
-APP_EC2 ansible_host=${appIpAWS} ansible_user=ubuntu ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
-
-[vm]
-APP_VM ansible_host=${appIpGCP} ansible_user=ubuntu ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
-EOL
-                            """
-                        }
-                    }
-                }    
-            }
-
-
-        stage('DEBUG SSH GCP') {
+        stage('Run Ansible - Deploy GCP') {
             steps {
-                sshagent(['gcp-gogs-key.pub']) {
+                sshagent(['gcp-gogs-key']) {
                     sh '''
-                        echo "Probando SSH directo a GCP..."
-                        ssh -vvv \
-                        -o StrictHostKeyChecking=no \
-                        -o UserKnownHostsFile=/dev/null \
-                        ubuntu@34.9.94.94 \
-                        "echo CONECTADO_OK && hostname"
+                        ansible-playbook \
+                          -i ansible/inventories/inventory.ini \
+                          ansible/playbooks.yml -vvv
                     '''
                 }
             }
         }
-
-        stage('Run Ansible - Deploy') {
-            parallel {
-                stage('Deploy AWS') {
-                    steps {
-                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                        sshagent(['ec2-app-key']) {
-                            sh '''
-                                ansible-playbook \
-                                  -i ansible/inventories/inventory.ini \
-                                  ansible/playbooks.yml \
-                            '''
-                        }
-                    }
-                }
-            }
-
-                stage('Deploy GCP') {
-                    steps {
-                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                        sshagent(['gcp-gogs-key.pub']) {
-                            sh '''
-                                ANSIBLE_DEBUG=True ansible-playbook \
-                                  -i ansible/inventories/inventory.ini \
-                                  ansible/playbooks.yml \
-                            '''
-                        }
-                    }
-                }
-            }
-        }
     }
-}
 
     post {
+        always {
+            cleanWs()
+        }
         failure {
-            echo "Failed to create or configure AWS or GCP resources."
+            echo "Pipeline failed: review Terraform or SSH configuration."
         }
     }
 }
