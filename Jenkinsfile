@@ -248,43 +248,27 @@ pipeline {
         }
     }
 
-        stage('Generate Ansible Inventories') {
-            parallel {
-                stage('AWS Inventory') {
+        stage('Generate Ansible Inventory') {
+                stage('Generate Inventory') {
                     steps {
                         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                         script {
-                            def appIp = readFile("${WORKSPACE}/ansible/app_ip_aws.txt").trim()
+                            def appIpAWS = readFile("${WORKSPACE}/ansible/app_ip_aws.txt").trim()
+                            def appIpGCP = readFile("${WORKSPACE}/ansible/app_ip_gcp.txt").trim()
                             sh """
                                 mkdir -p ${WORKSPACE}/ansible/inventories
-                                cat > ${WORKSPACE}/ansible/inventories/aws.ini <<EOL
+                                cat > ${WORKSPACE}/ansible/inventories/inventory.ini <<EOL
 [ec2]
-APP_EC2 ansible_host=${appIp} ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+APP_EC2 ansible_host=${appIpAWS} ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+
+APP_VM ansible_host=${appIpGCP} ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
 EOL
                             """
                         }
                     }
                 }
-            }
-            
-                stage('GCP Inventory') {
-                    steps {
-                        catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                        script {
-                            def appIp = readFile("${WORKSPACE}/ansible/app_ip_gcp.txt").trim()
-                            sh """
-                                mkdir -p ${WORKSPACE}/ansible/inventories
-                                cat > ${WORKSPACE}/ansible/inventories/gcp.ini <<EOL
-[vm]
-APP_VM ansible_host=${appIp} ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
-EOL
-                            """
-                        }
-                    }
-                }
-            }
+            }    
         }
-    }
 
         stage('Run Ansible - Deploy') {
             parallel {
@@ -294,7 +278,7 @@ EOL
                         sshagent(['ec2-app-key']) {
                             sh '''
                                 ansible-playbook \
-                                  -i ansible/inventories/aws.ini \
+                                  -i ansible/inventories/inventory.ini \
                                   ansible/playbooks.yml \
                                   -u ubuntu
                             '''
@@ -309,7 +293,7 @@ EOL
                         sshagent(['gcp-ssh-key']) {
                             sh '''
                                 ansible-playbook \
-                                  -i ansible/inventories/gcp.ini \
+                                  -i ansible/inventories/inventory.ini \
                                   ansible/playbooks.yml \
                                   -u ubuntu
                             '''
