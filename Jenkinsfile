@@ -77,10 +77,13 @@ pipeline {
                             dir("${TF_GCP_DIR}") {
                                 withCredentials([
                                     file(credentialsId: 'gcp-sa-key', variable: 'GCP_KEY')
+                                    file(credentialsId: 'gcp-gogs-pubkey', variable: 'GCP_PUB_KEY')
                                 ]) {
                                     sh '''
                                       export GOOGLE_APPLICATION_CREDENTIALS=$GCP_KEY
-                                      terraform plan -out=tfplan
+                                        terraform plan \
+                                            -var="ssh_public_key=$(cat $GCP_PUB_KEY)" \
+                                            -out=tfplan
                                     '''
                                 }
                             }
