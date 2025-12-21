@@ -264,7 +264,7 @@ pipeline {
 APP_EC2 ansible_host=${appIpAWS} ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
 
 [vm]
-APP_VM ansible_host=${appIpGCP} ansible_user=geraldopitz ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+APP_VM ansible_host=${appIpGCP} ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
 EOL
                             """
                         }
@@ -297,7 +297,7 @@ EOL
                                 ansible-playbook \
                                   -i ansible/inventories/inventory.ini \
                                   ansible/playbooks.yml \
-                                  -u ubuntu
+                                  -u geraldopitz
                             '''
                         }
                     }
