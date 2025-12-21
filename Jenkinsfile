@@ -249,7 +249,6 @@ pipeline {
     }
 
         stage('Generate Ansible Inventory') {
-                stage('Generate Inventory') {
                     steps {
                         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                         script {
@@ -266,9 +265,8 @@ EOL
                             """
                         }
                     }
-                }
-            }    
-        }
+                }    
+            }
 
         stage('Run Ansible - Deploy') {
             parallel {
