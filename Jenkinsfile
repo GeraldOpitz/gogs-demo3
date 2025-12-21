@@ -296,6 +296,7 @@ EOL
                                 ansible-playbook \
                                   -i ansible/inventories/inventory.ini \
                                   ansible/playbooks.yml \
+                                  - vvvv \
                             '''
                         }
                     }
