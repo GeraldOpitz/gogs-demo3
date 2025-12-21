@@ -328,9 +328,6 @@ EOL
 }
 
     post {
-        always {
-            cleanWs()
-        }
         failure {
             echo "Failed to create or configure AWS or GCP resources."
         }
