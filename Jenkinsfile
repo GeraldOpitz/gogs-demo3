@@ -250,6 +250,7 @@ pipeline {
         }
     }
 
+
         stage('Generate Ansible Inventory') {
                     steps {
                         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
@@ -263,7 +264,7 @@ pipeline {
 APP_EC2 ansible_host=${appIpAWS} ansible_user=ubuntu ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
 
 [vm]
-APP_VM ansible_host=${appIpGCP} ansible_user=ubuntu ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
+APP_VM ansible_host=${appIpGCP} ansible_user=ubuntu ansible_ssh_private_key_file=/var/jenkins_home/.ssh/gcp-gogs-key ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
 EOL
                             """
                         }
