@@ -265,13 +265,29 @@ pipeline {
 APP_EC2 ansible_host=${appIpAWS} ansible_user=ubuntu ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
 
 [vm]
-APP_VM ansible_host=${appIpGCP} ansible_user=ubuntu ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -vvv'
+APP_VM ansible_host=${appIpGCP} ansible_user=ubuntu ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'
 EOL
                             """
                         }
                     }
                 }    
             }
+
+
+        stage('DEBUG SSH GCP') {
+            steps {
+                sshagent(['gcp-gogs-key']) {
+                    sh '''
+                        echo "Probando SSH directo a GCP..."
+                        ssh -vvv \
+                        -o StrictHostKeyChecking=no \
+                        -o UserKnownHostsFile=/dev/null \
+                        ubuntu@34.9.94.94 \
+                        "echo CONECTADO_OK && hostname"
+                    '''
+                }
+            }
+        }
 
         stage('Run Ansible - Deploy') {
             parallel {
@@ -297,7 +313,6 @@ EOL
                                 ANSIBLE_DEBUG=True ansible-playbook \
                                   -i ansible/inventories/inventory.ini \
                                   ansible/playbooks.yml \
-                                  - vvvv \
                             '''
                         }
                     }
