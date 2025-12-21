@@ -280,7 +280,7 @@ EOL
                             sh '''
                                 ansible-playbook \
                                   -i ansible/inventories/inventory.ini \
-                                  ansible/playbooks.yml \
+                                  ansible/playbooks_aws.yml \
                             '''
                         }
                     }
@@ -294,7 +294,7 @@ EOL
                             sh '''
                                 ANSIBLE_DEBUG=True ansible-playbook \
                                   -i ansible/inventories/inventory.ini \
-                                  ansible/playbooks.yml \
+                                  ansible/playbooks_gcp.yml \
                             '''
                         }
                     }
