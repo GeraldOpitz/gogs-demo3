@@ -292,7 +292,7 @@ EOL
                     steps {
                         catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
                             sh '''
-                                ANSIBLE_DEBUG=True ansible-playbook \
+                                ansible-playbook \
                                   -i ansible/inventories/inventory.ini \
                                   ansible/playbooks_gcp.yml \
                             '''
