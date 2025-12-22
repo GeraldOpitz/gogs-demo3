@@ -18,7 +18,7 @@ pipeline {
                 dir("${env.WORKSPACE}/terraform") {
                     sh 'rm -rf ./* ./.??* || true'
                     sh '''
-                        git clone -b GOGS-5-Terraform-GCP \
+                        git clone -b main \
                         https://github.com/GeraldOpitz/gogs-tf .
                     '''
                 }
@@ -99,7 +99,6 @@ pipeline {
                     anyOf {
                         branch 'develop'
                         branch 'main'
-                        branch 'feature/jenkinsfile'
                     }
                 }
             }
@@ -116,7 +115,6 @@ pipeline {
                     anyOf {
                         branch 'develop'
                         branch 'main'
-                        branch 'feature/jenkinsfile'
                     }
                 }
             }
@@ -211,7 +209,6 @@ pipeline {
                     anyOf {
                         branch 'develop'
                         branch 'main'
-                        branch 'feature/jenkinsfile'
                     }
                 }
             }
